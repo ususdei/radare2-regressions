@@ -1,0 +1,59 @@
+#!/bin/bash
+[ -e tests.sh ] && . ./tests.sh || . ../tests.sh
+
+magic_pairs=(
+# format dec:hex
+    "3:55555556"
+    "5:66666667"
+#    "7:92492493"   TODO: convince assembler to accept this hex as 32bit unsigned
+    "9:38e38e39"
+    "13:4ec4ec4f"
+#    "39:d20d20d3"  TODO: convince assembler to accept this hex as 32bit unsigned
+    "37883:1badf00d"
+#    "21:1badf00d"   #NOTE: selfcheck
+)
+
+not_magic=(
+# format: dec
+    $(seq 1 10)
+    16
+    32
+    64
+    128
+    256
+    512
+    1024
+#    $(printf "%d" 0x66666667)  #NOTE: selfcheck
+)
+
+FILE=-
+
+for pair in ${magic_pairs[@]}; do
+    div=${pair%:*}
+    mul=${pair#*:}
+    NAME="CDIV deoptimization $div"
+    CMDS="
+e asm.hints=1
+wa mov eax, 0x$mul
+pd 1
+"
+    FILTER="sed 's/^.*; *//'"
+    EXPECT="CDIV: $div * 2^n
+"
+    run_test
+done
+
+for num in ${not_magic[@]}; do
+    hex=$(printf "%8x" $num)
+    NAME="CDIV false positive $num"
+    CMDS="
+e asm.hints=1
+wa mov eax, 0x$hex
+pd 1
+"
+    FILTER="sed 's/^[^;]*//'"
+    EXPECT="
+"
+    run_test
+done
+
